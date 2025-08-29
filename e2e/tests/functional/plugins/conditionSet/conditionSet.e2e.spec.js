@@ -65,23 +65,32 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
     //Navigate to baseURL with injected localStorage
     await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
 
+    //Wait for UI to fully render and stabilize before assertions
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
+
     //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
-    await expect
-      .soft(page.locator('.l-browse-bar__object-name'))
-      .toContainText('Unnamed Condition Set');
+    await expect(page.locator('.l-browse-bar__object-name')).toContainText('Unnamed Condition Set');
+
+    //Wait for Vue components to render in Inspector before asserting
+    await page.waitForSelector('_vue=item.name', { state: 'visible' });
 
     //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    await expect(page.locator('_vue=item.name=Unnamed Condition Set')).toBeVisible();
 
     //Reload Page
     await Promise.all([page.reload(), page.waitForLoadState('networkidle')]);
 
+    //Wait for UI to fully render after reload
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
+
     //Re-verify after reload
-    await expect
-      .soft(page.locator('.l-browse-bar__object-name'))
-      .toContainText('Unnamed Condition Set');
+    await expect(page.locator('.l-browse-bar__object-name')).toContainText('Unnamed Condition Set');
+
+    //Wait for Vue components to render in Inspector after reload
+    await page.waitForSelector('_vue=item.name', { state: 'visible' });
+
     //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    await expect(page.locator('_vue=item.name=Unnamed Condition Set')).toBeVisible();
   });
   test('condition set object can be modified on @localStorage', async ({ page, openmctConfig }) => {
     const { myItemsFolderName } = openmctConfig;
