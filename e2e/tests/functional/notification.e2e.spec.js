@@ -58,21 +58,17 @@ test.describe('Notifications List', () => {
     // Click on button with aria-label="Dismiss notification of Error message"
     await page.click('button[aria-label="Dismiss notification of Error message"]');
 
-    // Verify there is no a notification (listitem) with the text "Error message" since it was dismissed
-    expect(await page.locator('div[role="dialog"] div[role="listitem"]').innerText()).not.toContain(
-      'Error message'
-    );
+    // Wait for the notification to be removed from the DOM
+    await expect(page.locator('div[role="listitem"]:has-text("Error message")')).toHaveCount(0);
 
     // Verify there is still a notification (listitem) with the text "Alert message"
-    expect(await page.locator('div[role="dialog"] div[role="listitem"]').innerText()).toContain(
-      'Alert message'
-    );
+    await expect(page.locator('div[role="listitem"]:has-text("Alert message")')).toHaveCount(1);
 
     // Click on button with aria-label="Dismiss notification of Alert message"
     await page.click('button[aria-label="Dismiss notification of Alert message"]');
 
-    // Verify that there is no dialog since the notification overlay was closed automatically after all notifications were dismissed
-    expect(await page.locator('div[role="dialog"]').count()).toBe(0);
+    // Wait for the dialog to be removed after all notifications are dismissed
+    await expect(page.locator('div[role="dialog"]')).toHaveCount(0);
   });
 });
 
