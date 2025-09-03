@@ -77,6 +77,18 @@ test.describe('Notifications List', () => {
 });
 
 test.describe('Notification Overlay', () => {
+  async function waitForNotificationSystemStable(page) {
+    // Wait for banner to disappear
+    await page.waitForSelector('div[role="alert"]', { state: 'detached' });
+    // Ensure no pending notification operations
+    await page.waitForFunction(() => !window.openmct.notifications.activeTimeout);
+    // Wait for notification system to fully stabilize by checking no new notifications appear
+    await page.waitForFunction(() => {
+      const notificationOverlay = document.querySelector('div[role="dialog"]');
+      return !notificationOverlay || !notificationOverlay.isConnected;
+    });
+  }
+
   test('Closing notification list after notification banner disappeared does not cause it to open automatically', async ({
     page
   }) => {
@@ -97,8 +109,8 @@ test.describe('Notification Overlay', () => {
     // Verify that Notification List is open
     expect(await page.locator('div[role="dialog"]').isVisible()).toBe(true);
 
-    // Wait until there is no Notification Banner
-    await page.waitForSelector('div[role="alert"]', { state: 'detached' });
+    // Wait for notification system to fully stabilize
+    await waitForNotificationSystemStable(page);
 
     // Click on the "Close" button of the Notification List
     await page.click('button[aria-label="Close"]');
