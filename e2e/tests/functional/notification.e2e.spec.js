@@ -97,14 +97,29 @@ test.describe('Notification Overlay', () => {
     // Verify that Notification List is open
     expect(await page.locator('div[role="dialog"]').isVisible()).toBe(true);
 
-    // Wait until there is no Notification Banner
-    await page.waitForSelector('div[role="alert"]', { state: 'detached' });
+    // Wait until there is no Notification Banner with proper timeout
+    await page.waitForSelector('div[role="alert"]', { state: 'detached', timeout: 10000 });
+
+    // Wait for any potential animation/transition to complete
+    await page.waitForTimeout(500);
 
     // Click on the "Close" button of the Notification List
     await page.click('button[aria-label="Close"]');
 
+    // Wait for dialog to fully close before proceeding
+    await page.waitForSelector('div[role="dialog"]', { state: 'detached', timeout: 5000 });
+
+    // Wait for UI state to stabilize after closing notification list
+    await page.waitForTimeout(500);
+
     // On the Display Layout object, click on the "Edit" button
     await page.click('button[title="Edit"]');
+
+    // Wait for edit mode to be fully active
+    await page.waitForFunction(
+      () => window.openmct && window.openmct.editor && window.openmct.editor.isEditing(),
+      { timeout: 5000 }
+    );
 
     // Click on the "Save" button
     await page.click('button[title="Save"]');
@@ -112,7 +127,25 @@ test.describe('Notification Overlay', () => {
     // Click on the "Save and Finish Editing" option
     await page.click('li[title="Save and Finish Editing"]');
 
-    // Verify that Notification List is NOT open
+    // Wait for save operation to complete and exit edit mode
+    await page.waitForFunction(
+      () => window.openmct && window.openmct.editor && !window.openmct.editor.isEditing(),
+      { timeout: 10000 }
+    );
+
+    // Wait for any potential notification banners to appear and then disappear
+    await page.waitForTimeout(1000);
+
+    // Use waitForFunction to ensure notification dialog remains closed
+    await page.waitForFunction(
+      () => {
+        const dialogs = document.querySelectorAll('div[role="dialog"]');
+        return dialogs.length === 0 || Array.from(dialogs).every((dialog) => !dialog.offsetParent);
+      },
+      { timeout: 5000 }
+    );
+
+    // Final verification that Notification List is NOT open
     expect(await page.locator('div[role="dialog"]').isVisible()).toBe(false);
   });
 });
