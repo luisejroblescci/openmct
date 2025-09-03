@@ -88,6 +88,32 @@ test.describe('Notification Overlay', () => {
     // Go to baseURL
     await page.goto('./', { waitUntil: 'domcontentloaded' });
 
+    // Ensure clean notification state before starting test
+    await page.waitForTimeout(500);
+
+    // Clear any existing notifications that might be present
+    const existingNotificationButton = page.locator(
+      'button[aria-label*="Review"][aria-label*="Notification"]'
+    );
+    if ((await existingNotificationButton.count()) > 0) {
+      await existingNotificationButton.click();
+      // Wait for dialog to open
+      await page.waitForSelector('div[role="dialog"]', { state: 'visible' });
+      // Close all notifications if any exist
+      const dismissButtons = page.locator('button[aria-label*="Dismiss notification"]');
+      const dismissCount = await dismissButtons.count();
+      for (let i = 0; i < dismissCount; i++) {
+        await dismissButtons.first().click();
+        await page.waitForTimeout(50);
+      }
+      // Close the notification dialog if still open
+      const closeButton = page.locator('button[aria-label="Close"]');
+      if ((await closeButton.count()) > 0) {
+        await closeButton.click();
+        await page.waitForSelector('div[role="dialog"]', { state: 'detached' });
+      }
+    }
+
     // Create a new Display Layout object
     await createDomainObjectWithDefaults(page, { type: 'Display Layout' });
 
@@ -97,11 +123,22 @@ test.describe('Notification Overlay', () => {
     // Verify that Notification List is open
     expect(await page.locator('div[role="dialog"]').isVisible()).toBe(true);
 
-    // Wait until there is no Notification Banner
+    // Wait until there is no Notification Banner and ensure notification system has stabilized
     await page.waitForSelector('div[role="alert"]', { state: 'detached' });
+
+    // Additional wait to ensure Vue.js notification state has been updated
+    await page.waitForTimeout(100);
+
+    // Ensure no pending notifications are in the process of being created
+    await page.waitForFunction(() => !document.querySelector('div[role="alert"]'), {
+      timeout: 1000
+    });
 
     // Click on the "Close" button of the Notification List
     await page.click('button[aria-label="Close"]');
+
+    // Wait for notification list to be fully closed
+    await page.waitForSelector('div[role="dialog"]', { state: 'detached' });
 
     // On the Display Layout object, click on the "Edit" button
     await page.click('button[title="Edit"]');
@@ -112,7 +149,19 @@ test.describe('Notification Overlay', () => {
     // Click on the "Save and Finish Editing" option
     await page.click('li[title="Save and Finish Editing"]');
 
-    // Verify that Notification List is NOT open
+    // Wait for any potential notifications to be processed after save operation
+    await page.waitForTimeout(200);
+
+    // Ensure no notification dialog appears unexpectedly by waiting for a reasonable period
+    await page
+      .waitForFunction(() => !document.querySelector('div[role="dialog"]'), { timeout: 2000 })
+      .catch(() => {
+        // If this throws, it means a dialog appeared when it shouldn't have
+        throw new Error('Notification dialog appeared unexpectedly after save operation');
+      });
+
+    // Verify that Notification List is NOT open with multiple checks for robustness
+    expect(await page.locator('div[role="dialog"]').count()).toBe(0);
     expect(await page.locator('div[role="dialog"]').isVisible()).toBe(false);
   });
 });
