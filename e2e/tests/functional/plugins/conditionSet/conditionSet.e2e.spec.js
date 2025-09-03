@@ -62,33 +62,85 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
   test('Condition set object properties persist in main view and inspector @localStorage', async ({
     page
   }) => {
-    //Navigate to baseURL with injected localStorage
+    //Navigate to baseURL with injected localStorage with robust waiting
     await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
 
-    //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
+    // Wait for application to fully initialize by waiting for critical elements
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible', timeout: 30000 });
+    await page.waitForLoadState('networkidle');
+
+    // Wait specifically for the condition set object to be loaded and rendered
+    await page.waitForSelector('.l-browse-bar__object-name:has-text("Unnamed Condition Set")', {
+      state: 'visible',
+      timeout: 30000
+    });
+
+    // Wait for DOM to be stable by waiting for the condition set to be fully rendered
+    await expect(page.locator('.l-browse-bar__object-name')).toHaveText('Unnamed Condition Set', {
+      timeout: 15000
+    });
+
+    //Assertions on loaded Condition Set in main view
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Unnamed Condition Set');
 
-    //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    // Wait for inspector to be fully loaded before checking
+    await page.waitForSelector('[aria-label="Inspector"]', { state: 'visible', timeout: 15000 });
+    await page.waitForFunction(
+      () =>
+        document.querySelectorAll('*').length > 0 &&
+        document.querySelector('.l-browse-bar__object-name') &&
+        document
+          .querySelector('.l-browse-bar__object-name')
+          .textContent.includes('Unnamed Condition Set'),
+      {},
+      { timeout: 15000 }
+    );
 
-    //Reload Page
-    await Promise.all([page.reload(), page.waitForLoadState('networkidle')]);
+    //Assertions on loaded Condition Set in Inspector with more robust selector
+    const inspectorConditionSetText = page.getByText('Unnamed Condition Set').nth(1);
+    await expect(inspectorConditionSetText).toBeVisible({ timeout: 15000 });
 
-    //Re-verify after reload
+    //Reload Page with comprehensive waiting strategy
+    await page.reload({ waitUntil: 'networkidle' });
+
+    // Wait for page to be fully loaded after reload
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible', timeout: 30000 });
+
+    //Re-verify after reload with robust waiting
+    await page.waitForSelector('.l-browse-bar__object-name:has-text("Unnamed Condition Set")', {
+      state: 'visible',
+      timeout: 30000
+    });
+
+    // Wait for DOM stability after reload by ensuring content is loaded
+    await expect(page.locator('.l-browse-bar__object-name')).toHaveText('Unnamed Condition Set', {
+      timeout: 15000
+    });
+
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Unnamed Condition Set');
-    //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+
+    // Wait for inspector to be loaded again after reload
+    await page.waitForSelector('[aria-label="Inspector"]', { state: 'visible', timeout: 15000 });
+
+    //Assertions on loaded Condition Set in Inspector after reload
+    const reloadedInspectorConditionSetText = page.getByText('Unnamed Condition Set').nth(1);
+    await expect(reloadedInspectorConditionSetText).toBeVisible({ timeout: 15000 });
   });
   test('condition set object can be modified on @localStorage', async ({ page, openmctConfig }) => {
     const { myItemsFolderName } = openmctConfig;
 
-    await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
+    await page.goto(conditionSetUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
 
     //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
+    await page.waitForSelector('.l-browse-bar__object-name:has-text("Unnamed Condition Set")', {
+      state: 'visible'
+    });
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Unnamed Condition Set');
@@ -117,47 +169,57 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
     await page.locator('text=Save and Finish Editing').click();
 
     //Verify Main section reflects updated Name Property
+    await page.waitForSelector('.l-browse-bar__object-name:has-text("Renamed Condition Set")', {
+      state: 'visible'
+    });
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Renamed Condition Set');
 
     // Verify Inspector properties
     // Verify Inspector has updated Name property
-    expect.soft(page.locator('text=Renamed Condition Set').nth(1)).toBeTruthy();
+    await expect(page.getByText('Renamed Condition Set').nth(1)).toBeVisible();
     // Verify Inspector Details has updated Name property
-    expect.soft(page.locator('text=Renamed Condition Set').nth(2)).toBeTruthy();
+    await expect(page.getByText('Renamed Condition Set').nth(2)).toBeVisible();
 
     // Verify Tree reflects updated Name proprety
     // Expand Tree
     await page.locator(`text=Open MCT ${myItemsFolderName} >> span >> nth=3`).click();
     // Verify Condition Set Object is renamed in Tree
-    expect(page.locator('a:has-text("Renamed Condition Set")')).toBeTruthy();
+    await expect(page.locator('a:has-text("Renamed Condition Set")')).toBeVisible();
     // Verify Search Tree reflects renamed Name property
     await page.locator('[aria-label="OpenMCT Search"] input[type="search"]').fill('Renamed');
-    expect(page.locator('a:has-text("Renamed Condition Set")')).toBeTruthy();
+    await expect(page.locator('a:has-text("Renamed Condition Set")')).toBeVisible();
 
     //Reload Page
-    await Promise.all([page.reload(), page.waitForLoadState('networkidle')]);
+    await Promise.all([
+      page.reload(),
+      page.waitForLoadState('networkidle'),
+      page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' })
+    ]);
 
     //Verify Main section reflects updated Name Property
+    await page.waitForSelector('.l-browse-bar__object-name:has-text("Renamed Condition Set")', {
+      state: 'visible'
+    });
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Renamed Condition Set');
 
     // Verify Inspector properties
     // Verify Inspector has updated Name property
-    expect.soft(page.locator('text=Renamed Condition Set').nth(1)).toBeTruthy();
+    await expect(page.getByText('Renamed Condition Set').nth(1)).toBeVisible();
     // Verify Inspector Details has updated Name property
-    expect.soft(page.locator('text=Renamed Condition Set').nth(2)).toBeTruthy();
+    await expect(page.getByText('Renamed Condition Set').nth(2)).toBeVisible();
 
     // Verify Tree reflects updated Name proprety
     // Expand Tree
     await page.locator(`text=Open MCT ${myItemsFolderName} >> span >> nth=3`).click();
     // Verify Condition Set Object is renamed in Tree
-    expect(page.locator('a:has-text("Renamed Condition Set")')).toBeTruthy();
+    await expect(page.locator('a:has-text("Renamed Condition Set")')).toBeVisible();
     // Verify Search Tree reflects renamed Name property
     await page.locator('[aria-label="OpenMCT Search"] input[type="search"]').fill('Renamed');
-    expect(page.locator('a:has-text("Renamed Condition Set")')).toBeTruthy();
+    await expect(page.locator('a:has-text("Renamed Condition Set")')).toBeVisible();
   });
   test('condition set object can be deleted by Search Tree Actions menu on @localStorage', async ({
     page
@@ -199,7 +261,11 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
 
     //Feature?
     //Domain Object is still available by direct URL after delete
-    await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
+    await page.goto(conditionSetUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
+    await page.waitForSelector('.l-browse-bar__object-name:has-text("Unnamed Condition Set")', {
+      state: 'visible'
+    });
     await expect(page.locator('.l-browse-bar__object-name')).toContainText('Unnamed Condition Set');
   });
 });
