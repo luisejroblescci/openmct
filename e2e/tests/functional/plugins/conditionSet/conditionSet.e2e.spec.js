@@ -58,6 +58,12 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
   //Load localStorage for subsequent tests
   test.use({ storageState: './e2e/test-data/recycled_local_storage.json' });
 
+  test.beforeEach(async ({ page }) => {
+    // Ensure clean state before each test
+    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+  });
+
   //Begin suite of tests again localStorage
   test('Condition set object properties persist in main view and inspector @localStorage', async ({
     page
@@ -65,28 +71,81 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
     //Navigate to baseURL with injected localStorage
     await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
 
+    // Wait for the page to fully load and elements to be visible
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible', timeout: 10000 });
+    await page.waitForSelector('.c-inspector__properties', { state: 'visible', timeout: 10000 });
+    // Ensure elements are stable and ready for interaction
+    await page.waitForFunction(
+      () => {
+        const nameElement = document.querySelector('.l-browse-bar__object-name');
+        const inspectorElement = document.querySelector('.c-inspector__properties');
+        return (
+          nameElement &&
+          inspectorElement &&
+          nameElement.offsetHeight > 0 &&
+          inspectorElement.offsetHeight > 0
+        );
+      },
+      { timeout: 5000 }
+    );
+
     //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Unnamed Condition Set');
 
     //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    await expect
+      .soft(page.locator('.c-inspector__properties').getByText('Unnamed Condition Set'))
+      .toBeVisible();
 
     //Reload Page
     await Promise.all([page.reload(), page.waitForLoadState('networkidle')]);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Wait for elements to be visible after reload with extended timeout
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible', timeout: 10000 });
+    await page.waitForSelector('.c-inspector__properties', { state: 'visible', timeout: 10000 });
+    // Additional wait to ensure DOM is fully settled after reload
+    await page.waitForFunction(
+      () => {
+        const nameElement = document.querySelector('.l-browse-bar__object-name');
+        const inspectorElement = document.querySelector('.c-inspector__properties');
+        return (
+          nameElement &&
+          inspectorElement &&
+          nameElement.textContent.trim() !== '' &&
+          inspectorElement.textContent.trim() !== ''
+        );
+      },
+      { timeout: 5000 }
+    );
 
     //Re-verify after reload
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Unnamed Condition Set');
     //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    await expect
+      .soft(page.locator('.c-inspector__properties').getByText('Unnamed Condition Set'))
+      .toBeVisible();
   });
   test('condition set object can be modified on @localStorage', async ({ page, openmctConfig }) => {
     const { myItemsFolderName } = openmctConfig;
 
     await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
+    await page.waitForLoadState('domcontentloaded');
+
+    // Wait for elements to be visible after navigation with extended timeout
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible', timeout: 10000 });
+    // Ensure page is fully rendered before proceeding
+    await page.waitForFunction(
+      () => {
+        const nameElement = document.querySelector('.l-browse-bar__object-name');
+        return nameElement && nameElement.offsetHeight > 0 && nameElement.textContent.trim() !== '';
+      },
+      { timeout: 5000 }
+    );
 
     //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
     await expect
@@ -138,6 +197,18 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
 
     //Reload Page
     await Promise.all([page.reload(), page.waitForLoadState('networkidle')]);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Wait for elements to be visible after reload with extended timeout
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible', timeout: 10000 });
+    // Additional stabilization wait after reload
+    await page.waitForFunction(
+      () => {
+        const nameElement = document.querySelector('.l-browse-bar__object-name');
+        return nameElement && nameElement.offsetHeight > 0 && nameElement.textContent.trim() !== '';
+      },
+      { timeout: 5000 }
+    );
 
     //Verify Main section reflects updated Name Property
     await expect
