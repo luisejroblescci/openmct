@@ -379,6 +379,7 @@ export default class NotificationAPI extends EventEmitter {
    */
   _setActiveNotification(notification) {
     this.activeNotification = notification;
+    this.emit('active-notification-changed', notification);
 
     if (!notification) {
       delete this.activeTimeout;

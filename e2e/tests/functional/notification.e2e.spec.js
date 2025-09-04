@@ -97,8 +97,13 @@ test.describe('Notification Overlay', () => {
     // Verify that Notification List is open
     expect(await page.locator('div[role="dialog"]').isVisible()).toBe(true);
 
-    // Wait until there is no Notification Banner
-    await page.waitForSelector('div[role="alert"]', { state: 'detached' });
+    // Wait until there is no Notification Banner and dialog is stable
+    await page.waitForFunction(() => {
+      return (
+        !document.querySelector('div[role="alert"]') &&
+        !document.querySelector('div[role="dialog"]').style.display === 'block'
+      );
+    });
 
     // Click on the "Close" button of the Notification List
     await page.click('button[aria-label="Close"]');

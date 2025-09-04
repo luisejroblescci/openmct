@@ -76,7 +76,10 @@ export default {
       this.openmct.notifications.dismissAllNotifications();
     },
     toggleNotificationsList(flag) {
-      this.showNotificationsOverlay = flag;
+      clearTimeout(this.overlayToggleTimeout);
+      this.overlayToggleTimeout = setTimeout(() => {
+        this.showNotificationsOverlay = flag;
+      }, 50);
     },
     updateNotifications() {
       this.notifications = this.openmct.notifications.notifications;
