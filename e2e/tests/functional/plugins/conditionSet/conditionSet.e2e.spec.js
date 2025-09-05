@@ -37,12 +37,28 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
     //TODO: This needs to be refactored
     const context = await browser.newContext();
     const page = await context.newPage();
-    await page.goto('./', { waitUntil: 'domcontentloaded' });
+    await page.goto('./', { waitUntil: 'networkidle' });
+
+    //Wait for the Create button to be visible and clickable
+    await page.waitForSelector('button:has-text("Create")', { state: 'visible' });
     await page.click('button:has-text("Create")');
 
+    //Wait for the menu to appear and click Condition Set
+    await page.waitForSelector('li[role="menuitem"]:has-text("Condition Set")', {
+      state: 'visible'
+    });
     await page.locator('li[role="menuitem"]:has-text("Condition Set")').click();
 
-    await Promise.all([page.waitForNavigation(), page.click('button:has-text("OK")')]);
+    //Wait for OK button to be visible then click and wait for navigation
+    await page.waitForSelector('button:has-text("OK")', { state: 'visible' });
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle' }),
+      page.click('button:has-text("OK")')
+    ]);
+
+    //Wait for the page to be fully loaded before saving state
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
 
     //Save localStorage for future test execution
     await context.storageState({ path: './e2e/test-data/recycled_local_storage.json' });
@@ -65,23 +81,33 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
     //Navigate to baseURL with injected localStorage
     await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
 
+    //Wait for the page to be fully loaded and the object name to be visible
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
+
     //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Unnamed Condition Set');
 
-    //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    //Wait for inspector to be loaded and assertions on loaded Condition Set in Inspector
+    await page.waitForSelector('_vue=item.name=Unnamed Condition Set', { state: 'visible' });
+    await expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeVisible();
 
-    //Reload Page
-    await Promise.all([page.reload(), page.waitForLoadState('networkidle')]);
+    //Reload Page and wait for full load
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForLoadState('domcontentloaded');
+
+    //Wait for elements to be ready after reload
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
 
     //Re-verify after reload
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Unnamed Condition Set');
-    //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+
+    //Wait for inspector and assertions on loaded Condition Set in Inspector
+    await page.waitForSelector('_vue=item.name=Unnamed Condition Set', { state: 'visible' });
+    await expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeVisible();
   });
   test('condition set object can be modified on @localStorage', async ({ page, openmctConfig }) => {
     const { myItemsFolderName } = openmctConfig;
