@@ -100,8 +100,28 @@ test.describe('Notification Overlay', () => {
     // Wait until there is no Notification Banner
     await page.waitForSelector('div[role="alert"]', { state: 'detached' });
 
+    // Wait for notification state stabilization after banner dismissal (300ms animation timeout)
+    await page.waitForFunction(
+      () => {
+        // Check if any animation classes or transition states are active
+        const notificationContainer = document.querySelector('[class*="notification"]');
+        return !notificationContainer || !notificationContainer.classList.contains('animating');
+      },
+      { timeout: 1000 }
+    );
+
     // Click on the "Close" button of the Notification List
     await page.click('button[aria-label="Close"]');
+
+    // Wait for the notification overlay to be properly closed and state to stabilize
+    await page.waitForSelector('div[role="dialog"]', { state: 'detached' });
+
+    // Ensure notification system is fully stabilized before proceeding
+    await page.waitForFunction(() => {
+      const notificationOverlay = document.querySelector('div[role="dialog"]');
+      const notificationBanner = document.querySelector('div[role="alert"]');
+      return !notificationOverlay && !notificationBanner;
+    });
 
     // On the Display Layout object, click on the "Edit" button
     await page.click('button[title="Edit"]');
@@ -111,6 +131,17 @@ test.describe('Notification Overlay', () => {
 
     // Click on the "Save and Finish Editing" option
     await page.click('li[title="Save and Finish Editing"]');
+
+    // Wait for save operation to complete and ensure no notification overlay appears
+    await page.waitForFunction(
+      () => {
+        const saveButton = document.querySelector('button[title="Save"]');
+        const dialog = document.querySelector('div[role="dialog"]');
+        // Save is complete when save button is no longer visible and no dialog is open
+        return !saveButton && !dialog;
+      },
+      { timeout: 5000 }
+    );
 
     // Verify that Notification List is NOT open
     expect(await page.locator('div[role="dialog"]').isVisible()).toBe(false);
