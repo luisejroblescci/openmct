@@ -49,8 +49,8 @@ test.describe('Notifications List', () => {
       message: 'Alert message'
     });
 
-    // Verify that there is a button with aria-label "Review 2 Notifications"
-    expect(await page.locator('button[aria-label="Review 2 Notifications"]').count()).toBe(1);
+    // Wait for notification button to appear with correct count
+    await expect(page.locator('button[aria-label="Review 2 Notifications"]')).toBeVisible();
 
     // Click on button with aria-label "Review 2 Notifications"
     await page.click('button[aria-label="Review 2 Notifications"]');
@@ -58,21 +58,21 @@ test.describe('Notifications List', () => {
     // Click on button with aria-label="Dismiss notification of Error message"
     await page.click('button[aria-label="Dismiss notification of Error message"]');
 
-    // Verify there is no a notification (listitem) with the text "Error message" since it was dismissed
-    expect(await page.locator('div[role="dialog"] div[role="listitem"]').innerText()).not.toContain(
-      'Error message'
-    );
+    // Wait for the Error notification to be dismissed and DOM to update
+    await expect(
+      page.locator('div[role="dialog"] div[role="listitem"]:has-text("Error message")')
+    ).toBeHidden();
 
     // Verify there is still a notification (listitem) with the text "Alert message"
-    expect(await page.locator('div[role="dialog"] div[role="listitem"]').innerText()).toContain(
-      'Alert message'
-    );
+    await expect(
+      page.locator('div[role="dialog"] div[role="listitem"]:has-text("Alert message")')
+    ).toBeVisible();
 
     // Click on button with aria-label="Dismiss notification of Alert message"
     await page.click('button[aria-label="Dismiss notification of Alert message"]');
 
-    // Verify that there is no dialog since the notification overlay was closed automatically after all notifications were dismissed
-    expect(await page.locator('div[role="dialog"]').count()).toBe(0);
+    // Wait for overlay to close completely after last dismissal (accounting for animation timeout)
+    await expect(page.locator('div[role="dialog"]')).toBeHidden();
   });
 });
 
