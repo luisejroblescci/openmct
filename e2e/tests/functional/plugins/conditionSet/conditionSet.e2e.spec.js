@@ -63,25 +63,31 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
     page
   }) => {
     //Navigate to baseURL with injected localStorage
-    await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
+    await page.goto(conditionSetUrl, { waitUntil: 'domcontentloaded' });
+
+    // Wait for the condition set to be fully loaded by checking for the object name
+    await expect(page.locator('.l-browse-bar__object-name')).toBeVisible();
 
     //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Unnamed Condition Set');
 
-    //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    //Assertions on loaded Condition Set in Inspector - use more reliable text-based selector
+    await expect.soft(page.locator('text=Unnamed Condition Set').first()).toBeVisible();
 
     //Reload Page
-    await Promise.all([page.reload(), page.waitForLoadState('networkidle')]);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    // Wait for the condition set to be fully loaded again after reload
+    await expect(page.locator('.l-browse-bar__object-name')).toBeVisible();
 
     //Re-verify after reload
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Unnamed Condition Set');
-    //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    //Assertions on loaded Condition Set in Inspector - use more reliable text-based selector
+    await expect.soft(page.locator('text=Unnamed Condition Set').first()).toBeVisible();
   });
   test('condition set object can be modified on @localStorage', async ({ page, openmctConfig }) => {
     const { myItemsFolderName } = openmctConfig;
