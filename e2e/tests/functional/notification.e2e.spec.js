@@ -103,16 +103,40 @@ test.describe('Notification Overlay', () => {
     // Click on the "Close" button of the Notification List
     await page.click('button[aria-label="Close"]');
 
+    // Wait for the dialog to be closed after clicking Close button
+    await page.waitForSelector('div[role="dialog"]', { state: 'detached' });
+
+    // Wait for overlay state to be false using robust selector
+    await page.waitForFunction(() => {
+      const dialog = document.querySelector('div[role="dialog"]');
+      return !dialog || getComputedStyle(dialog).display === 'none';
+    });
+
     // On the Display Layout object, click on the "Edit" button
     await page.click('button[title="Edit"]');
 
     // Click on the "Save" button
     await page.click('button[title="Save"]');
 
+    // Wait for save menu to appear
+    await page.waitForSelector('li[title="Save and Finish Editing"]');
+
     // Click on the "Save and Finish Editing" option
     await page.click('li[title="Save and Finish Editing"]');
 
-    // Verify that Notification List is NOT open
+    // Wait for the save operation to complete by checking for the Edit button to reappear
+    await page.waitForSelector('button[title="Edit"]');
+
+    // Use robust wait condition to ensure notification overlay remains closed
+    await page.waitForFunction(
+      () => {
+        const dialog = document.querySelector('div[role="dialog"]');
+        return !dialog;
+      },
+      { timeout: 5000 }
+    );
+
+    // Verify that Notification List is NOT open with robust assertion
     expect(await page.locator('div[role="dialog"]').isVisible()).toBe(false);
   });
 });
