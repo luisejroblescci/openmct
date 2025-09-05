@@ -55,24 +55,36 @@ test.describe('Notifications List', () => {
     // Click on button with aria-label "Review 2 Notifications"
     await page.click('button[aria-label="Review 2 Notifications"]');
 
+    // Wait for notification overlay to be fully loaded
+    await page.waitForSelector('div[role="dialog"] div[role="listitem"]');
+
     // Click on button with aria-label="Dismiss notification of Error message"
     await page.click('button[aria-label="Dismiss notification of Error message"]');
 
-    // Verify there is no a notification (listitem) with the text "Error message" since it was dismissed
-    expect(await page.locator('div[role="dialog"] div[role="listitem"]').innerText()).not.toContain(
-      'Error message'
-    );
+    // Wait for notification overlay to be in stable state before proceeding
+    await page.waitForLoadState('networkidle');
+
+    // Wait for specific notification to be removed from DOM
+    await page.waitForSelector('[aria-label="Dismiss notification of Error message"]', {
+      state: 'detached'
+    });
+
+    // Verify the specific notification content is gone
+    await expect(page.locator('div[role="listitem"]:has-text("Error message")')).toHaveCount(0);
 
     // Verify there is still a notification (listitem) with the text "Alert message"
-    expect(await page.locator('div[role="dialog"] div[role="listitem"]').innerText()).toContain(
+    await expect(page.locator('div[role="dialog"] div[role="listitem"]')).toContainText(
       'Alert message'
     );
+
+    // After dismissing first notification, verify count updates
+    await expect(page.locator('button[aria-label*="Review 1 Notification"]')).toBeVisible();
 
     // Click on button with aria-label="Dismiss notification of Alert message"
     await page.click('button[aria-label="Dismiss notification of Alert message"]');
 
-    // Verify that there is no dialog since the notification overlay was closed automatically after all notifications were dismissed
-    expect(await page.locator('div[role="dialog"]').count()).toBe(0);
+    // Wait for the dialog to be removed from DOM after all notifications are dismissed
+    await page.waitForSelector('div[role="dialog"]', { state: 'detached' });
   });
 });
 
