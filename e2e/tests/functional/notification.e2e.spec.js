@@ -49,14 +49,29 @@ test.describe('Notifications List', () => {
       message: 'Alert message'
     });
 
+    // Wait for notifications to be fully rendered and button to be available
+    await page.waitForSelector('button[aria-label="Review 2 Notifications"]', { state: 'visible' });
+
     // Verify that there is a button with aria-label "Review 2 Notifications"
     expect(await page.locator('button[aria-label="Review 2 Notifications"]').count()).toBe(1);
 
     // Click on button with aria-label "Review 2 Notifications"
     await page.click('button[aria-label="Review 2 Notifications"]');
 
-    // Click on button with aria-label="Dismiss notification of Error message"
+    // Wait for notification dialog to be fully opened
+    await page.waitForSelector('div[role="dialog"]', { state: 'visible' });
+
+    // Wait for dismiss button to be available and click it
+    await page.waitForSelector('button[aria-label="Dismiss notification of Error message"]', {
+      state: 'visible'
+    });
     await page.click('button[aria-label="Dismiss notification of Error message"]');
+
+    // Wait for the error notification to be dismissed and DOM to update
+    await page.waitForFunction(() => {
+      const dialogContent = document.querySelector('div[role="dialog"] div[role="listitem"]');
+      return dialogContent && !dialogContent.textContent.includes('Error message');
+    });
 
     // Verify there is no a notification (listitem) with the text "Error message" since it was dismissed
     expect(await page.locator('div[role="dialog"] div[role="listitem"]').innerText()).not.toContain(
@@ -68,8 +83,14 @@ test.describe('Notifications List', () => {
       'Alert message'
     );
 
-    // Click on button with aria-label="Dismiss notification of Alert message"
+    // Wait for dismiss button to be available and click it
+    await page.waitForSelector('button[aria-label="Dismiss notification of Alert message"]', {
+      state: 'visible'
+    });
     await page.click('button[aria-label="Dismiss notification of Alert message"]');
+
+    // Wait for the dialog to be automatically closed after all notifications are dismissed
+    await page.waitForSelector('div[role="dialog"]', { state: 'detached' });
 
     // Verify that there is no dialog since the notification overlay was closed automatically after all notifications were dismissed
     expect(await page.locator('div[role="dialog"]').count()).toBe(0);
