@@ -30,63 +30,80 @@ const { test, expect } = require('../../../../pluginFixtures.js');
 const { createDomainObjectWithDefaults } = require('../../../../appActions');
 
 let conditionSetUrl;
-let getConditionSetIdentifierFromUrl;
 
-test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
-  test.beforeAll(async ({ browser }) => {
-    //TODO: This needs to be refactored
-    const context = await browser.newContext();
-    const page = await context.newPage();
+test.describe('Condition Set CRUD Operations on @localStorage', () => {
+  test.beforeEach(async ({ page }) => {
+    // Create a fresh condition set for each test to avoid state sharing
     await page.goto('./', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
+
     await page.click('button:has-text("Create")');
-
     await page.locator('li[role="menuitem"]:has-text("Condition Set")').click();
-
     await Promise.all([page.waitForNavigation(), page.click('button:has-text("OK")')]);
 
-    //Save localStorage for future test execution
-    await context.storageState({ path: './e2e/test-data/recycled_local_storage.json' });
+    // Wait for the condition set to be fully created and loaded
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.l-browse-bar__object-name')).toContainText('Unnamed Condition Set');
 
-    //Set object identifier from url
     conditionSetUrl = page.url();
-
-    getConditionSetIdentifierFromUrl = conditionSetUrl.split('/').pop().split('?')[0];
-    console.debug(`getConditionSetIdentifierFromUrl: ${getConditionSetIdentifierFromUrl}`);
-    await page.close();
   });
 
-  //Load localStorage for subsequent tests
-  test.use({ storageState: './e2e/test-data/recycled_local_storage.json' });
-
-  //Begin suite of tests again localStorage
   test('Condition set object properties persist in main view and inspector @localStorage', async ({
     page
   }) => {
-    //Navigate to baseURL with injected localStorage
-    await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
+    // The condition set is already created and loaded from beforeEach
 
-    //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
-    await expect
-      .soft(page.locator('.l-browse-bar__object-name'))
-      .toContainText('Unnamed Condition Set');
+    // Wait for Vue components to be fully rendered and stable
+    await page.waitForLoadState('networkidle');
 
-    //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    // Wait for inspector to be visible and stable
+    await page.waitForSelector('.c-inspector', { state: 'visible' });
+    await page.waitForFunction(() => {
+      const inspector = document.querySelector('.c-inspector');
+      return inspector && inspector.children.length > 0;
+    });
 
-    //Reload Page
-    await Promise.all([page.reload(), page.waitForLoadState('networkidle')]);
+    //Assertions on loaded Condition Set in main view
+    await expect(page.locator('.l-browse-bar__object-name')).toContainText(
+      'Unnamed Condition Set',
+      { timeout: 10000 }
+    );
 
-    //Re-verify after reload
-    await expect
-      .soft(page.locator('.l-browse-bar__object-name'))
-      .toContainText('Unnamed Condition Set');
-    //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    //Assertions on loaded Condition Set in Inspector with better selector
+    const inspectorNameElement = page
+      .locator('.c-inspector .c-object-label__name')
+      .filter({ hasText: 'Unnamed Condition Set' });
+    await expect(inspectorNameElement).toBeVisible({ timeout: 10000 });
+
+    //Reload Page and wait for complete reload
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForLoadState('networkidle');
+
+    // Wait for Vue components to re-render after reload
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('.c-inspector', { state: 'visible' });
+    await page.waitForFunction(() => {
+      const inspector = document.querySelector('.c-inspector');
+      return inspector && inspector.children.length > 0;
+    });
+
+    //Re-verify after reload with increased timeout
+    await expect(page.locator('.l-browse-bar__object-name')).toContainText(
+      'Unnamed Condition Set',
+      { timeout: 10000 }
+    );
+
+    //Assertions on loaded Condition Set in Inspector after reload
+    const inspectorNameElementAfterReload = page
+      .locator('.c-inspector .c-object-label__name')
+      .filter({ hasText: 'Unnamed Condition Set' });
+    await expect(inspectorNameElementAfterReload).toBeVisible({ timeout: 10000 });
   });
   test('condition set object can be modified on @localStorage', async ({ page, openmctConfig }) => {
     const { myItemsFolderName } = openmctConfig;
 
-    await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
+    // The condition set is already loaded from beforeEach
+    await page.waitForLoadState('networkidle');
 
     //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
     await expect
@@ -94,8 +111,12 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
       .toContainText('Unnamed Condition Set');
 
     //Update the Condition Set properties
-    // Click Edit Button
-    await page.locator('text=Conditions View Snapshot >> button').nth(3).click();
+    // Click Edit Button - wait for it to be available
+    await page.waitForSelector('[title="Edit"]', { state: 'visible' });
+    await page.locator('[title="Edit"]').click();
+
+    // Wait for edit mode to be fully activated
+    await page.waitForSelector('.c-button--menu.c-button--major', { state: 'visible' });
 
     //Edit Condition Set Name from main view
     await page
@@ -108,24 +129,44 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
       .filter({ hasText: 'Renamed Condition Set' })
       .first()
       .press('Enter');
-    // Click Save Button
-    await page
-      .locator('text=Snapshot Save and Finish Editing Save and Continue Editing >> button')
-      .nth(1)
-      .click();
-    // Click Save and Finish Editing Option
+    // Click Save Button - wait for it to be available
+    await page.waitForSelector('button[title="Save"]', { state: 'visible' });
+    await page.locator('button[title="Save"]').click();
+
+    // Wait for save menu to appear and click Save and Finish Editing
+    await page.waitForSelector('text=Save and Finish Editing', { state: 'visible' });
     await page.locator('text=Save and Finish Editing').click();
 
-    //Verify Main section reflects updated Name Property
-    await expect
-      .soft(page.locator('.l-browse-bar__object-name'))
-      .toContainText('Renamed Condition Set');
+    // Wait for save operation to complete and edit mode to exit
+    await page.waitForSelector('[title="Edit"]', { state: 'visible' });
+    await page.waitForLoadState('networkidle'); // Allow UI to stabilize after save
 
-    // Verify Inspector properties
+    //Verify Main section reflects updated Name Property
+    await expect(page.locator('.l-browse-bar__object-name')).toContainText(
+      'Renamed Condition Set',
+      { timeout: 10000 }
+    );
+
+    // Verify Inspector properties with proper waiting
+    await page.waitForSelector('.c-inspector', { state: 'visible' });
+    await page.waitForFunction(
+      () => {
+        const inspectorElements = document.querySelectorAll(
+          '.c-inspector [class*="name"]:not(.c-search__input)'
+        );
+        return Array.from(inspectorElements).some((el) =>
+          el.textContent.includes('Renamed Condition Set')
+        );
+      },
+      { timeout: 10000 }
+    );
+
     // Verify Inspector has updated Name property
-    expect.soft(page.locator('text=Renamed Condition Set').nth(1)).toBeTruthy();
-    // Verify Inspector Details has updated Name property
-    expect.soft(page.locator('text=Renamed Condition Set').nth(2)).toBeTruthy();
+    const inspectorNameUpdated = page
+      .locator('.c-inspector')
+      .locator('text=Renamed Condition Set')
+      .first();
+    await expect(inspectorNameUpdated).toBeVisible({ timeout: 10000 });
 
     // Verify Tree reflects updated Name proprety
     // Expand Tree
@@ -137,18 +178,37 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
     expect(page.locator('a:has-text("Renamed Condition Set")')).toBeTruthy();
 
     //Reload Page
-    await Promise.all([page.reload(), page.waitForLoadState('networkidle')]);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForLoadState('networkidle');
 
-    //Verify Main section reflects updated Name Property
-    await expect
-      .soft(page.locator('.l-browse-bar__object-name'))
-      .toContainText('Renamed Condition Set');
+    // Wait for Vue components to re-render
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('.c-inspector', { state: 'visible' });
 
-    // Verify Inspector properties
-    // Verify Inspector has updated Name property
-    expect.soft(page.locator('text=Renamed Condition Set').nth(1)).toBeTruthy();
-    // Verify Inspector Details has updated Name property
-    expect.soft(page.locator('text=Renamed Condition Set').nth(2)).toBeTruthy();
+    //Verify Main section reflects updated Name Property after reload
+    await expect(page.locator('.l-browse-bar__object-name')).toContainText(
+      'Renamed Condition Set',
+      { timeout: 10000 }
+    );
+
+    // Verify Inspector properties after reload with proper waiting
+    await page.waitForFunction(
+      () => {
+        const inspectorElements = document.querySelectorAll(
+          '.c-inspector [class*="name"]:not(.c-search__input)'
+        );
+        return Array.from(inspectorElements).some((el) =>
+          el.textContent.includes('Renamed Condition Set')
+        );
+      },
+      { timeout: 10000 }
+    );
+
+    const inspectorNameAfterReload = page
+      .locator('.c-inspector')
+      .locator('text=Renamed Condition Set')
+      .first();
+    await expect(inspectorNameAfterReload).toBeVisible({ timeout: 10000 });
 
     // Verify Tree reflects updated Name proprety
     // Expand Tree
@@ -162,13 +222,23 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
   test('condition set object can be deleted by Search Tree Actions menu on @localStorage', async ({
     page
   }) => {
-    //Navigate to baseURL
+    // Navigate to home to test deletion from search
     await page.goto('./', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle');
 
-    //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
-    await expect(
-      page.locator('a:has-text("Unnamed Condition Set Condition Set") >> nth=0')
-    ).toBeVisible();
+    // Wait for the condition set to appear in the tree - it was created in beforeEach
+    await page.waitForLoadState('networkidle');
+
+    // Search for our condition set first to make sure it exists
+    await page
+      .locator('[aria-label="OpenMCT Search"] input[type="search"]')
+      .fill('Unnamed Condition Set');
+    await page.waitForLoadState('networkidle'); // Wait for search results
+
+    // Verify condition set exists before trying to count
+    await expect(page.locator('text=Unnamed Condition Set').first()).toBeVisible({
+      timeout: 10000
+    });
 
     const numberOfConditionSetsToStart = await page
       .locator('a:has-text("Unnamed Condition Set Condition Set")')
