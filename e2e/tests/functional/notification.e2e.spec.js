@@ -37,6 +37,11 @@ test.describe('Notifications List', () => {
     // Go to baseURL
     await page.goto('./', { waitUntil: 'domcontentloaded' });
 
+    // Wait for Open MCT to be fully initialized
+    await page.waitForFunction(() => window.openmct && window.openmct.notifications, {
+      timeout: 10000
+    });
+
     // Create an error notification with the message "Error message"
     await createNotification(page, {
       severity: 'error',
@@ -58,6 +63,15 @@ test.describe('Notifications List', () => {
     // Click on button with aria-label="Dismiss notification of Error message"
     await page.click('button[aria-label="Dismiss notification of Error message"]');
 
+    // Wait for the notification to be removed from the DOM
+    await page.waitForFunction(
+      () =>
+        !document
+          .querySelector('div[role="dialog"] div[role="listitem"]')
+          ?.innerText?.includes('Error message'),
+      { timeout: 5000 }
+    );
+
     // Verify there is no a notification (listitem) with the text "Error message" since it was dismissed
     expect(await page.locator('div[role="dialog"] div[role="listitem"]').innerText()).not.toContain(
       'Error message'
@@ -70,6 +84,9 @@ test.describe('Notifications List', () => {
 
     // Click on button with aria-label="Dismiss notification of Alert message"
     await page.click('button[aria-label="Dismiss notification of Alert message"]');
+
+    // Wait for the dialog to be removed from the DOM after all notifications are dismissed
+    await page.waitForSelector('div[role="dialog"]', { state: 'detached', timeout: 5000 });
 
     // Verify that there is no dialog since the notification overlay was closed automatically after all notifications were dismissed
     expect(await page.locator('div[role="dialog"]').count()).toBe(0);
