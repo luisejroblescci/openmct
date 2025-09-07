@@ -33,6 +33,16 @@ let conditionSetUrl;
 let getConditionSetIdentifierFromUrl;
 
 test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
+  // Add beforeEach to ensure clean state between tests
+  test.beforeEach(async ({ page }) => {
+    // Clear localStorage to prevent state leakage between tests
+    await page.goto('./');
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+  });
+
   test.beforeAll(async ({ browser }) => {
     //TODO: This needs to be refactored
     const context = await browser.newContext();
@@ -65,28 +75,52 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
     //Navigate to baseURL with injected localStorage
     await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
 
+    // Wait for DOM to be fully loaded and interactive
+    await page.waitForLoadState('domcontentloaded');
+
+    // Wait explicitly for the object name element to be visible
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
+
     //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Unnamed Condition Set');
 
-    //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    //Assertions on loaded Condition Set in Inspector - using more stable selector
+    await page.waitForSelector('.c-inspector', { state: 'visible' });
+    await expect
+      .soft(page.locator('.c-inspector').locator('text=Unnamed Condition Set'))
+      .toBeVisible();
 
     //Reload Page
     await Promise.all([page.reload(), page.waitForLoadState('networkidle')]);
+
+    // Wait for DOM to be fully loaded and interactive after reload
+    await page.waitForLoadState('domcontentloaded');
+
+    // Wait explicitly for the object name element to be visible after reload
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
 
     //Re-verify after reload
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
       .toContainText('Unnamed Condition Set');
-    //Assertions on loaded Condition Set in Inspector
-    expect.soft(page.locator('_vue=item.name=Unnamed Condition Set')).toBeTruthy();
+    //Assertions on loaded Condition Set in Inspector - using more stable selector
+    await page.waitForSelector('.c-inspector', { state: 'visible' });
+    await expect
+      .soft(page.locator('.c-inspector').locator('text=Unnamed Condition Set'))
+      .toBeVisible();
   });
   test('condition set object can be modified on @localStorage', async ({ page, openmctConfig }) => {
     const { myItemsFolderName } = openmctConfig;
 
     await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
+
+    // Wait for DOM to be fully loaded and interactive
+    await page.waitForLoadState('domcontentloaded');
+
+    // Wait explicitly for the object name element to be visible
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
 
     //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
     await expect
@@ -139,6 +173,12 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
     //Reload Page
     await Promise.all([page.reload(), page.waitForLoadState('networkidle')]);
 
+    // Wait for DOM to be fully loaded and interactive after reload
+    await page.waitForLoadState('domcontentloaded');
+
+    // Wait explicitly for the object name element to be visible after reload
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
+
     //Verify Main section reflects updated Name Property
     await expect
       .soft(page.locator('.l-browse-bar__object-name'))
@@ -164,6 +204,12 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
   }) => {
     //Navigate to baseURL
     await page.goto('./', { waitUntil: 'domcontentloaded' });
+
+    // Wait for DOM to be fully loaded and interactive
+    await page.waitForLoadState('networkidle');
+
+    // Wait for tree to be visible before assertions
+    await page.waitForSelector('.c-tree', { state: 'visible' });
 
     //Assertions on loaded Condition Set in main view. This is a stateful transition step after page.goto()
     await expect(
@@ -200,6 +246,13 @@ test.describe.serial('Condition Set CRUD Operations on @localStorage', () => {
     //Feature?
     //Domain Object is still available by direct URL after delete
     await page.goto(conditionSetUrl, { waitUntil: 'networkidle' });
+
+    // Wait for DOM to be fully loaded and interactive
+    await page.waitForLoadState('domcontentloaded');
+
+    // Wait explicitly for the object name element to be visible
+    await page.waitForSelector('.l-browse-bar__object-name', { state: 'visible' });
+
     await expect(page.locator('.l-browse-bar__object-name')).toContainText('Unnamed Condition Set');
   });
 });
