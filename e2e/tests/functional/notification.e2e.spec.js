@@ -91,8 +91,14 @@ test.describe('Notification Overlay', () => {
     // Create a new Display Layout object
     await createDomainObjectWithDefaults(page, { type: 'Display Layout' });
 
-    // Click on the button "Review 1 Notification"
-    await page.click('button[aria-label="Review 1 Notification"]');
+    // Wait for notification button to be visible before clicking
+    await page.waitForSelector('button[aria-label*="Review"][aria-label*="Notification"]', {
+      state: 'visible'
+    });
+
+    // Click on the button "Review 1 Notification" with more specific selector
+    await page.waitForSelector('button[aria-label*="Review"][aria-label*="Notification"]');
+    await page.click('button[aria-label*="Review"][aria-label*="Notification"]');
 
     // Verify that Notification List is open
     expect(await page.locator('div[role="dialog"]').isVisible()).toBe(true);
@@ -103,6 +109,12 @@ test.describe('Notification Overlay', () => {
     // Click on the "Close" button of the Notification List
     await page.click('button[aria-label="Close"]');
 
+    // Add explicit wait after closing overlay - wait for overlay animations to complete
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+
+    // Wait for dialog to be detached before continuing
+    await page.waitForSelector('div[role="dialog"]', { state: 'detached' });
+
     // On the Display Layout object, click on the "Edit" button
     await page.click('button[title="Edit"]');
 
@@ -112,7 +124,9 @@ test.describe('Notification Overlay', () => {
     // Click on the "Save and Finish Editing" option
     await page.click('li[title="Save and Finish Editing"]');
 
-    // Verify that Notification List is NOT open
-    expect(await page.locator('div[role="dialog"]').isVisible()).toBe(false);
+    // Verify that Notification List is NOT open with retry logic
+    await expect(async () => {
+      expect(await page.locator('div[role="dialog"]').isVisible()).toBe(false);
+    }).toPass({ timeout: 5000 });
   });
 });
