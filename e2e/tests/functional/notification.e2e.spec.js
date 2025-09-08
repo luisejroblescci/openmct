@@ -42,34 +42,40 @@ test.describe('Notifications List', () => {
       severity: 'error',
       message: 'Error message'
     });
+    await page.waitForSelector('button[aria-label="Review 1 Notification"]');
 
     // Create an alert notification with the message "Alert message"
     await createNotification(page, {
       severity: 'alert',
       message: 'Alert message'
     });
+    await page.waitForSelector('button[aria-label="Review 2 Notifications"]');
 
     // Verify that there is a button with aria-label "Review 2 Notifications"
     expect(await page.locator('button[aria-label="Review 2 Notifications"]').count()).toBe(1);
 
     // Click on button with aria-label "Review 2 Notifications"
     await page.click('button[aria-label="Review 2 Notifications"]');
+    await page.waitForSelector('div[role="dialog"]', { state: 'visible' });
 
     // Click on button with aria-label="Dismiss notification of Error message"
     await page.click('button[aria-label="Dismiss notification of Error message"]');
 
     // Verify there is no a notification (listitem) with the text "Error message" since it was dismissed
-    expect(await page.locator('div[role="dialog"] div[role="listitem"]').innerText()).not.toContain(
+    await expect(page.locator('div[role="dialog"] div[role="listitem"]')).not.toContainText(
       'Error message'
     );
 
     // Verify there is still a notification (listitem) with the text "Alert message"
-    expect(await page.locator('div[role="dialog"] div[role="listitem"]').innerText()).toContain(
+    await expect(page.locator('div[role="dialog"] div[role="listitem"]')).toContainText(
       'Alert message'
     );
 
     // Click on button with aria-label="Dismiss notification of Alert message"
     await page.click('button[aria-label="Dismiss notification of Alert message"]');
+
+    // Wait for dialog dismissal
+    await page.waitForSelector('div[role="dialog"]', { state: 'detached' });
 
     // Verify that there is no dialog since the notification overlay was closed automatically after all notifications were dismissed
     expect(await page.locator('div[role="dialog"]').count()).toBe(0);
