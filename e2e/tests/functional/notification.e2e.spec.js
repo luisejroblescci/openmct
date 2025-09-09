@@ -91,28 +91,59 @@ test.describe('Notification Overlay', () => {
     // Create a new Display Layout object
     await createDomainObjectWithDefaults(page, { type: 'Display Layout' });
 
+    // Wait for the notification button to be visible and ready for interaction
+    const notificationButton = page.locator('button[aria-label="Review 1 Notification"]');
+    await notificationButton.waitFor({ state: 'visible' });
+    await expect(notificationButton).toBeEnabled();
+
     // Click on the button "Review 1 Notification"
-    await page.click('button[aria-label="Review 1 Notification"]');
+    await notificationButton.click();
 
-    // Verify that Notification List is open
-    expect(await page.locator('div[role="dialog"]').isVisible()).toBe(true);
+    // Verify that Notification List is open and stable
+    const dialogLocator = page.locator('div[role="dialog"]');
+    await dialogLocator.waitFor({ state: 'visible' });
+    await expect(dialogLocator).toBeVisible();
 
-    // Wait until there is no Notification Banner
+    // Wait until there is no Notification Banner and ensure UI is stable
     await page.waitForSelector('div[role="alert"]', { state: 'detached' });
 
+    // Verify dialog is still visible after banner disappears
+    await expect(dialogLocator).toBeVisible();
+
     // Click on the "Close" button of the Notification List
-    await page.click('button[aria-label="Close"]');
+    const closeButton = page.locator('button[aria-label="Close"]');
+    await closeButton.waitFor({ state: 'visible' });
+    await closeButton.click();
+
+    // Wait for the dialog to be fully closed
+    await dialogLocator.waitFor({ state: 'hidden' });
+    await expect(dialogLocator).toBeHidden();
 
     // On the Display Layout object, click on the "Edit" button
-    await page.click('button[title="Edit"]');
+    const editButton = page.locator('button[title="Edit"]');
+    await editButton.waitFor({ state: 'visible' });
+    await expect(editButton).toBeEnabled();
+    await editButton.click();
+
+    // Wait for edit mode to be activated (save button becomes available)
+    const saveButton = page.locator('button[title="Save"]');
+    await saveButton.waitFor({ state: 'visible' });
+    await expect(saveButton).toBeEnabled();
 
     // Click on the "Save" button
-    await page.click('button[title="Save"]');
+    await saveButton.click();
+
+    // Wait for save dropdown to appear and be interactable
+    const saveOption = page.locator('li[title="Save and Finish Editing"]');
+    await saveOption.waitFor({ state: 'visible' });
 
     // Click on the "Save and Finish Editing" option
-    await page.click('li[title="Save and Finish Editing"]');
+    await saveOption.click();
 
-    // Verify that Notification List is NOT open
-    expect(await page.locator('div[role="dialog"]').isVisible()).toBe(false);
+    // Wait for save operation to complete by checking that edit button is back to enabled state
+    await expect(editButton).toBeEnabled();
+
+    // Verify that Notification List is NOT open after all operations
+    await expect(dialogLocator).toBeHidden();
   });
 });
